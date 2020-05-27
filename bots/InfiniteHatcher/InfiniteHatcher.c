@@ -176,12 +176,13 @@ void HID_Task(void) {
 uint8_t echoes = 0;
 USB_JoystickReport_Input_t last_report;
 
+Command tempCommand;
 int durationCount = 0;
 
 const int8_t LAST_COMMAND = (sizeof(m_command) / sizeof(m_command[0])) - 1; // used for debugging
 
 int8_t m_commandIndex = 0;    // current executing command
-int8_t m_endIndex = 29;       // last command to execute in sequence, then we check for new command
+int8_t m_endIndex = 27;       // last command to execute in sequence, then we check for new command
 int8_t m_eggCount = 0;        // how many eggs we are holding right now
 int16_t m_spinCount = 0;      // how many times we have spun this iteration
 int16_t m_spinMax = 0;        // how many times we need to spin to move on
@@ -209,8 +210,11 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 		return;
 	}
 
+	memcpy_P(&tempCommand, &(m_command[m_commandIndex]), sizeof(Command));
+	Buttons_t button = tempCommand.button;
+
 	// quit executing if we are at the last command
-	if ((m_commandIndex == LAST_COMMAND) && (m_command[m_commandIndex].button == NOTHING))
+	if ((m_commandIndex == LAST_COMMAND) && (button == NOTHING))
 	{
 		return;
 	}
@@ -221,87 +225,86 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	// Get the next command sequence (new start and end)
 	if (m_commandIndex == -1)
 	{
-		if (m_endIndex == 26) // we just picked up an egg (hopefully)
+		if (m_endIndex == 27) // we just picked up an egg (hopefully)
 		{
 		    m_eggCount++;
 
 			if (m_eggCount < MAX_NUM_OF_EGGS)
 			{
-				m_commandIndex = 27; // spin
-				m_endIndex = 28;
+				m_commandIndex = 28; // spin
+				m_endIndex = 29;
 				m_spinCount = 0;
 				m_spinMax = 14; // 2 "spins" per second (7 seconds should be enough for next egg)
 			}
 			else
 			{
 				m_phase = 1; // set to hatching phase
-				m_commandIndex = 27; // spin
-				m_endIndex = 28;
+				m_commandIndex = 28; // spin
+				m_endIndex = 29;
 				m_spinCount = 0;
 				m_spinMax = (HATCHING_TIME_SEC * m_eggStepGroup) * 2; // 2 "spins" per second
 			}
 		}
-		else if (m_endIndex == 28) // We are spinning
+		else if (m_endIndex == 29) // We are spinning
 		{
 			m_spinCount++;
 			if (m_spinCount < m_spinMax)
 			{
-				m_commandIndex = 27; // keep spinning
+				m_commandIndex = 28; // keep spinning
 			}
 			else
 			{
 				if (m_phase == 0) // we are still collecting
 				{
 					m_commandIndex = 3; // go back to get an egg
-					m_endIndex = 26;
+					m_endIndex = 27;
 				}
 				else
 				{
-					m_commandIndex = 29; // put mon in boxes
-					m_endIndex = 63;
+					m_commandIndex = 30; // put mon in boxes
+					m_endIndex = 64;
 					m_phase = 0; // set to egg collecting phase
 				}
 			}
 		}
-		else if (m_endIndex == 63) // We opened the pokemon menu, selected the pokemon, and moved right
+		else if (m_endIndex == 64) // We opened the pokemon menu, selected the pokemon, and moved right
 		{
 			m_columnPosition++;
 			if (m_columnPosition < m_nextColumn)
 			{
-				m_commandIndex = 62; // we need to keep moving right
+				m_commandIndex = 63; // we need to keep moving right
 			}
 			else
 			{
-				m_commandIndex = 64; // we are at an open column, put them in
-				m_endIndex = 67;
+				m_commandIndex = 65; // we are at an open column, put them in
+				m_endIndex = 68;
 			}
 		}
-		else if (m_endIndex == 67) // We just put the pokemon in the box
+		else if (m_endIndex == 68) // We just put the pokemon in the box
 		{
 			if (m_nextColumn < 6)
 			{
-				m_commandIndex = 70; // just quit the menu
-				m_endIndex = 77;
+				m_commandIndex = 71; // just quit the menu
+				m_endIndex = 78;
 				m_nextColumn++;
 			}
 			else
 			{
-				m_commandIndex = 68; // advance to the next box, then quit the menu
-				m_endIndex = 77;
+				m_commandIndex = 69; // advance to the next box, then quit the menu
+				m_endIndex = 78;
 				m_nextColumn = 1;
 				m_boxesFilled++;
 			}
 		}
-		else if (m_endIndex == 77) // We finished putting away the hatched mon and are in the menu
+		else if (m_endIndex == 78) // We finished putting away the hatched mon and are in the menu
 		{
 			m_eggCount = 0;
 			m_columnPosition = 0;
-			m_commandIndex = 5; // start over!
-			m_endIndex = 26;
+			m_commandIndex = 6; // start over!
+			m_endIndex = 27;
 		}
 	}
 
-	Buttons_t button = m_command[m_commandIndex].button;
 	if (button == UP)
 	{
 		ReportData->LY = STICK_MIN;
@@ -369,7 +372,7 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 
 	durationCount++;
 
-	if (durationCount > m_command[m_commandIndex].duration)
+	if (durationCount > tempCommand.duration)
 	{
 		m_commandIndex++;
 		durationCount = 0;
